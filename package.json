@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "openai": "^4.0.0",
+    "toastify-js": "^1.12.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1"
+  }
+}
