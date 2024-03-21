@@ -13,7 +13,13 @@ if (isset($decodedParams->scope) && !empty($decodedParams->scope)) {
     if ($decodedParams->scope == 'users') {
         if (isset($decodedParams->action) && !empty($decodedParams->action)) {
             if ($decodedParams->action == 'getUsers') {
-                $stmt = $dbh->prepare("SELECT userId, userFirstname, userEmail, userCreatedate FROM users where userId != :userId");
+                $stmt = $dbh->prepare("SELECT users.userId, users.userFirstname, users.userEmail, users.userCreatedate, MAX(chat.sent) AS lastSent 
+                FROM users 
+                LEFT JOIN fapgar_1_chat AS chat ON users.userId = chat.from OR users.userId = chat.to 
+                WHERE users.userId != :userId
+                GROUP BY users.userId 
+                ORDER BY lastSent DESC 
+                LIMIT 30");
                 session_start();
                 $userId = $_SESSION['user']['userId'];
                 session_write_close();
@@ -29,9 +35,23 @@ if (isset($decodedParams->scope) && !empty($decodedParams->scope)) {
                     $response['status'] = 500;
                     $response['message'] = 'Error fetching users';
                 }
+            } elseif ($decodedParams->action == 'getLatestUser') {
+                $stmt = $dbh->prepare("SELECT userId, userFirstname, userEmail, userCreatedate FROM users ORDER BY userId DESC LIMIT 1");
+                $stmt->execute();
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($user) {
+                    $response['status'] = 200;
+                    $response['message'] = 'Latest user fetched successfully';
+                    $response['data'] = $user;
+                } else {
+                    $response['status'] = 500;
+                    $response['message'] = 'Error fetching latest user';
+                }
             }
         }
     }
+
+
 
     if ($decodedParams->scope == 'message') {
         if (isset($decodedParams->action) && !empty($decodedParams->action)) {
@@ -67,17 +87,15 @@ if (isset($decodedParams->scope) && !empty($decodedParams->scope)) {
                 if (isset($decodedParams->from) && isset($decodedParams->to)) {
                     $from = $decodedParams->from;
                     $to = $decodedParams->to;
-            
                     $stmt = $dbh->prepare("SELECT id, `from`, `to`, message, sent, recd, timestamp 
                                            FROM fapgar_1_chat 
                                            WHERE (`from` = :from AND `to` = :to) OR (`from` = :to AND `to` = :from) 
-                                           ");
+                                             ORDER BY `timestamp` ASC");
                     $stmt->bindParam(':from', $from);
                     $stmt->bindParam(':to', $to);
                     $stmt->execute();
                     $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            
                     if ($messages) {
                         $response['status'] = 200;
                         $response['message'] = 'Messages fetched successfully';
@@ -96,7 +114,7 @@ if (isset($decodedParams->scope) && !empty($decodedParams->scope)) {
                     $to = $decodedParams->to;
                     $stmt = $dbh->prepare("SELECT id, `from`, `to`, message, sent, recd, timestamp 
                                            FROM fapgar_1_chat 
-                                           WHERE (`from` = :from AND `to` = :to) OR (`from` = :to AND `to` = :from) 
+                                           WHERE (`from` = :from AND `to` = :to) OR (`from` = :to AND `to` = :from)  
                                            ORDER BY id DESC LIMIT 1");
                     $stmt->bindParam(':from', $from);
                     $stmt->bindParam(':to', $to);
@@ -114,10 +132,24 @@ if (isset($decodedParams->scope) && !empty($decodedParams->scope)) {
                     $response['status'] = 400;
                     $response['message'] = 'Missing from or to parameter';
                 }
+            } elseif ($decodedParams->action == 'getAllMessages') {
+                $stmt = $dbh->prepare("SELECT id, `from`, `to`, `message`, `sent`, recd, `timestamp` FROM fapgar_1_chat");
+                $stmt->execute();
+                $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                if ($messages) {
+                    $response['status'] = 200;
+                    $response['message'] = 'Messages fetched successfully';
+                    $response['data'] = $messages;
+                } else {
+                    $response['status'] = 404;
+                    $response['message'] = 'No messages found';
+                }
+            } else {
+                $response['status'] = 400;
+                $response['message'] = 'Missing action parameter or invalid action';
             }
         }
     }
-
 
     function isEmailExists($email, $dbh)
     {
@@ -187,6 +219,7 @@ if (isset($decodedParams->scope) && !empty($decodedParams->scope)) {
                     session_write_close();
                     $response['status'] = 200;
                     $response['message'] = 'User logged in successfully';
+                    $response['data'] = $user;
                 } else {
                     $response['status'] = 400;
                     $response['message'] = 'Invalid email or password';
@@ -197,6 +230,57 @@ if (isset($decodedParams->scope) && !empty($decodedParams->scope)) {
             }
         }
     }
+
+    if ($decodedParams->scope == 'checkMessage') {
+        if ($decodedParams->scope == 'checkMessage') {
+            if (isset($decodedParams->action) && !empty($decodedParams->action)) {
+                if ($decodedParams->action == 'receiveMessage') {
+                    if (isset($decodedParams->from)) {
+                        $from = $decodedParams->from;
+                        $stmt = $dbh->prepare("SELECT id FROM fapgar_1_chat WHERE `to` = :from AND `recd` = 0");
+                        $stmt->bindParam(':from', $from);
+                        $stmt->execute();
+                        $messagesReceived = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($messagesReceived as $messageReceived) {
+                            $stmt = $dbh->prepare("UPDATE fapgar_1_chat SET `recd` = 1 WHERE `id` = :id");
+                            $stmt->bindParam(':id', $messageReceived['id']);
+                            $stmt->execute();
+                        }
+                        $response['status'] = 200;
+                        $response['message'] = 'Message received successfully';
+                        $response['data'] = $messagesReceived;
+                    } else {
+                        $response['status'] = 400;
+                        $response['message'] = 'Missing from or to parameter';
+                    }
+                } elseif ($decodedParams->action == 'seenMessage') {
+                    if (isset($decodedParams->from)) {
+                        $from = $decodedParams->from;
+                        $stmt = $dbh->prepare("SELECT id FROM fapgar_1_chat WHERE `to` = :from AND `recd` = 1");
+                        $stmt->bindParam(':from', $from);
+                        $stmt->execute();
+                        $messagesSeen = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($messagesSeen as $messageSeen) {
+                            $stmt = $dbh->prepare("UPDATE fapgar_1_chat SET `recd` = 2 WHERE `id` = :id");
+                            $stmt->bindParam(':id', $messageSeen['id']);
+                            $stmt->execute();
+                        }
+                        $response['status'] = 200;
+                        $response['message'] = 'Message seen successfully';
+                        $response['data'] = $messagesSeen;
+                    } else {
+                        $response['status'] = 400;
+                        $response['message'] = 'Missing from parameter';
+                    }
+                }
+            } else {
+                $response['status'] = 400;
+                $response['message'] = 'Missing action parameter';
+            }
+        }
+    }
 }
+
+
 echo json_encode($response);
 exit;

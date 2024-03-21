@@ -33,8 +33,7 @@
 			</form>
 		</div>
 	</div>
-	<script src="../script.js"></script>
 	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+	<script src="auth.js"></script>
 </body>
-
 </html>

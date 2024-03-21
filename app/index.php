@@ -7,8 +7,7 @@
   <title>Message App</title>
   <link rel="stylesheet" href="style.css">
   <link rel="shortcut icon" href="./files/unnamed.png" type="image/x-icon">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-</head>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" /></head>
 
 <body>
 
@@ -24,9 +23,6 @@
   ?></div>
     <div class="wrapper">
       <div class="conversation-area">
-        <div class="conversationHeader">
-          Users
-        </div>
       </div>
       <div class="chat-area-start">
         <h1 class="text-start">Select a user to start chatting
@@ -34,7 +30,7 @@
       </div>
       <div class="chat-area hidden">
         <div class="header">
-          Other user
+          Users
         </div>
         <div class="chat-area-main">
         </div>
@@ -49,7 +45,6 @@
   </div>
   <script src="./script.js"></script>
 
-  <?php session_write_close(); ?>
-</body>
+ </body>
 
 </html>
